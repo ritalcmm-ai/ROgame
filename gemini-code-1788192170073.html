@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>老友記現實導向問答遊戲</title>
+<style>
+    body {
+        font-family: "Microsoft JhengHei", "PingFang HK", sans-serif;
+        background: linear-gradient(135deg, #FFD1DC, #B5EAD7);
+        color: #333;
+        margin: 0;
+        padding: 20px;
+        display: flex;
+        justify-content: center;
+        min-height: 100vh;
+    }
+    #game-container {
+        width: 100%;
+        max-width: 900px;
+        background: rgba(255, 255, 255, 0.95);
+        padding: 40px;
+        border-radius: 20px;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    .hidden {
+        display: none !important;
+    }
+    h1 {
+        font-size: 3em;
+        color: #5D4037;
+        margin-bottom: 30px;
+    }
+    #top-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 2em;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    #timer {
+        color: #D35400;
+        background: #FFE0B2;
+        padding: 10px 20px;
+        border-radius: 15px;
+    }
+    #score-display {
+        color: #F39C12;
+    }
+    #progress-text {
+        color: #4A90E2;
+    }
+    progress {
+        width: 100%;
+        height: 35px;
+        margin-bottom: 30px;
+        border-radius: 10px;
+    }
+    progress::-webkit-progress-bar {
+        background-color: #eee;
+        border-radius: 10px;
+    }
+    progress::-webkit-progress-value {
+        background-color: #F8BBD0;
+        border-radius: 10px;
+    }
+    #question-text {
+        font-size: 2.8em;
+        line-height: 1.4;
+        margin: 30px 0;
+        color: #5D4037;
+        min-height: 150px;
+    }
+    .options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+    }
+    .btn-option {
+        font-size: 2.2em;
+        padding: 30px 20px;
+        background-color: #B3E5FC; 
+        color: #333;
+        border: 2px solid #81D4FA;
+        border-radius: 15px;
+        cursor: pointer;
+        transition: background-color 0.2s, transform 0.1s;
+        word-wrap: break-word;
+    }
+    .btn-option:hover {
+        background-color: #81D4FA;
+    }
+    .btn-option:active {
+        transform: scale(0.98);
+    }
+    #start-btn, #restart-btn {
+        font-size: 2.5em;
+        padding: 20px 50px;
+        background-color: #FFF59D;
+        color: #5D4037;
+        border: 2px solid #FFF176;
+        border-radius: 15px;
+        cursor: pointer;
+        margin-top: 50px;
+    }
+    #start-btn:hover, #restart-btn:hover {
+        background-color: #FFF176;
+    }
+    #feedback {
+        font-size: 3em;
+        font-weight: bold;
+        margin-top: 20px;
+        min-height: 60px;
+    }
+    .correct { color: #4CAF50; }
+    .wrong { color: #E57373; }
+</style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="start-screen">
+        <h1>老友記現實導向及本地常識問答</h1>
+        <p style="font-size: 2em; color: #7f8c8d;">請開啟裝置音量，問題將會以廣東話朗讀。</p>
+        <button id="start-btn" onclick="startGame()">開始遊戲</button>
+    </div>
+
+    <div id="quiz-screen" class="hidden">
+        <div id="top-bar">
+            <span id="progress-text">第 1 題</span>
+            <span id="score-display">⭐ 0 分</span>
+            <span id="timer">⏳ 20秒</span>
+        </div>
+        <progress id="progress-bar" value="1" max="30"></progress>
+        
+        <div id="question-text">載入中...</div>
+        
+        <div class="options-grid" id="options-container">
+        </div>
+        
+        <div id="feedback"></div>
+    </div>
+
+    <div id="end-screen" class="hidden">
+        <h1>遊戲完成！</h1>
+        <p style="font-size: 2.5em;">總共答啱咗 <span id="score" style="color:#e74c3c; font-weight:bold;">0</span> 題。</p>
+        <button id="restart-btn" onclick="location.reload()">再玩一次</button>
+    </div>
+</div>
+
+<script>
+    // 自動獲取今日日期資料
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1; 
+    const currentDate = today.getDate();
+    const currentDay = today.getDay(); 
+
+    // 星期轉換 (加入Emoji)
+    const daysInChinese = ["星期日 ☀️", "星期一 🌙", "星期二 🌿", "星期三 💧", "星期四 🌲", "星期五 🌟", "星期六 🎈"];
+    const todayStr = daysInChinese[currentDay];
+    
+    const yesterdayDate = new Date(today);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = daysInChinese[yesterdayDate.getDay()];
+
+    // 生肖計算 (加入Emoji)
+    const zodiacs = ["猴 🐒", "雞 🐓", "狗 🐕", "豬 🐖", "鼠 🐀", "牛 🐂", "虎 🐅", "兔 🐇", "龍 🐉", "蛇 🐍", "馬 🐎", "羊 🐏"];
+    const currentZodiac = zodiacs[currentYear % 12] + "年";
+    const nextZodiac = zodiacs[(currentYear + 1) % 12] + "年";
+    const prevZodiac = zodiacs[(currentYear - 1 + 12) % 12] + "年";
+    const prevPrevZodiac = zodiacs[(currentYear - 2 + 12) % 12] + "年";
+
+    // 季節判斷 (加入Emoji)
+    let currentSeason = "";
+    if (currentMonth >= 3 && currentMonth <= 5) currentSeason = "春天 🌸";
+    else if (currentMonth >= 6 && currentMonth <= 8) currentSeason = "夏天 ☀️";
+    else if (currentMonth >= 9 && currentMonth <= 11) currentSeason = "秋天 🍁";
+    else currentSeason = "冬天 ❄️";
+
+    // 節日判斷 (加入Emoji)
+    let upcomingFestival = "";
+    let fakeFestivals = [];
+    if (currentMonth == 1 || currentMonth == 2) {
+        upcomingFestival = "農曆新年 🧧"; fakeFestivals = ["中秋節 🥮", "端午節 🐉", "清明節 🌿"];
+    } else if (currentMonth == 3 || currentMonth == 4) {
+        upcomingFestival = "清明節 🌿"; fakeFestivals = ["中秋節 🥮", "端午節 🐉", "農曆新年 🧧"];
+    } else if (currentMonth == 5 || currentMonth == 6) {
+        upcomingFestival = "端午節 🐉"; fakeFestivals = ["中秋節 🥮", "清明節 🌿", "農曆新年 🧧"];
+    } else if (currentMonth >= 7 && currentMonth <= 9) {
+        upcomingFestival = "中秋節 🥮"; fakeFestivals = ["重陽節 ⛰️", "端午節 🐉", "農曆新年 🧧"];
+    } else if (currentMonth == 10 || currentMonth == 11) {
+        upcomingFestival = "重陽節 ⛰️"; fakeFestivals = ["冬至 🥟", "端午節 🐉", "清明節 🌿"];
+    } else {
+        upcomingFestival = "冬至 🥟"; fakeFestivals = ["中秋節 🥮", "農曆新年 🧧", "清明節 🌿"];
+    }
+
+    // 產生題目 (動態時間 + 地點導向 + 靜態節日 + 香港常識)
+    const questions = [
+        // 第一部分：動態時間導向
+        { q: "請問今年係西曆邊一年呀？", options: [`${currentYear}年 📅`, `${currentYear + 1}年 📅`, `${currentYear - 1}年 📅`, `${currentYear + 2}年 📅`], answer: `${currentYear}年 📅` },
+        { q: "依家係西曆幾多月呀？", options: [`${currentMonth}月 🗓️`, `${currentMonth == 12 ? 1 : currentMonth + 1}月 🗓️`, `${currentMonth <= 2 ? currentMonth + 10 : currentMonth - 2}月 🗓️`, `${currentMonth == 1 ? 12 : currentMonth - 1}月 🗓️`], answer: `${currentMonth}月 🗓️` },
+        { q: "今日係幾多號呀？", options: [`${currentDate}號 📆`, `${currentDate == 31 ? 1 : currentDate + 1}號 📆`, `${currentDate == 1 ? 28 : currentDate - 1}號 📆`, `${currentDate == 30 ? 2 : currentDate + 2}號 📆`], answer: `${currentDate}號 📆` },
+        { q: "今日係星期幾呀？", options: [todayStr, daysInChinese[(currentDay + 1) % 7], daysInChinese[(currentDay + 2) % 7], daysInChinese[(currentDay + 3) % 7]], answer: todayStr },
+        { q: "琴日即係星期幾呀？", options: [yesterdayStr, daysInChinese[(yesterdayDate.getDay() + 1) % 7], daysInChinese[(yesterdayDate.getDay() + 2) % 7], daysInChinese[(yesterdayDate.getDay() + 3) % 7]], answer: yesterdayStr },
+        { q: `今年${currentYear}年，係十二生肖入面嘅咩年份呀？`, options: [currentZodiac, nextZodiac, prevZodiac, prevPrevZodiac], answer: currentZodiac },
+        { q: "依家天氣，屬於一年四季邊一個季節呀？", options: ["春天 🌸", "夏天 ☀️", "秋天 🍁", "冬天 ❄️"], answer: currentSeason },
+        { q: "按依家嘅月份，下一個最近嘅傳統大節日係咩？", options: [upcomingFestival, fakeFestivals[0], fakeFestivals[1], fakeFestivals[2]], answer: upcomingFestival },
+        
+        // 第二部分：地點導向
+        { q: "請問我哋依家身處邊一間醫院呀？", options: ["瑪嘉烈醫院 🏥", "伊利沙伯醫院 🏥", "威爾斯親王醫院 🏥", "屯門醫院 🏥"], answer: "瑪嘉烈醫院 🏥" },
+        { q: "請問我哋依家身處香港邊一區呀？", options: ["荔景 🏘️", "深水埗 🏙️", "中環 🏢", "觀塘 🏭"], answer: "荔景 🏘️" },
+        { q: "請問我哋依家喺醫院邊個部門做緊訓練呀？", options: ["職業治療部 🛠️", "物理治療部 🏃", "急症室 🚑", "藥房 💊"], answer: "職業治療部 🛠️" },
+
+        // 第三部分：靜態節日及習俗
+        { q: "過節一家人食飯，通常會食咩代表一家團團圓圓呀？", options: ["湯圓 🍡", "月餅 🥮", "蘿蔔糕 🥢", "糭 🎋"], answer: "湯圓 🍡" },
+        { q: "農曆新年，長輩會派咩畀後輩祝佢哋快高長大？", options: ["利是 🧧", "月餅 🥮", "朱古力 🍫", "壽包 🍑"], answer: "利是 🧧" },
+        { q: "俗語話「年廿八，＿＿＿」，傳統上我哋要點做？", options: ["洗邋遢 🧹", "買新衫 👕", "食湯圓 🍡", "拜車公 ⛩️"], answer: "洗邋遢 🧹" },
+        { q: "農曆正月十五係咩節日，又俾人叫做中國情人節？", options: ["元宵節 🏮", "七夕 🌌", "中秋節 🥮", "情人節 💝"], answer: "元宵節 🏮" },
+        { q: "春天邊個節日我哋會去掃墓，紀念先人？", options: ["清明節 🌿", "端午節 🐉", "中秋節 🥮", "重陽節 ⛰️"], answer: "清明節 🌿" },
+        { q: "端午節係為咗紀念邊位古代嘅愛國詩人？", options: ["屈原 📜", "李白 🍶", "杜甫 🖌️", "蘇軾 📖"], answer: "屈原 📜" },
+        { q: "端午節我哋會去河邊或者海邊睇咩比賽呀？", options: ["扒龍舟 🛶", "賽馬 🐎", "游水 🏊", "跑馬拉松 🏃"], answer: "扒龍舟 🛶" },
+        { q: "中秋節我哋最主要會食咩應節食品呀？", options: ["月餅 🥮", "糭 🎋", "湯圓 🍡", "年糕 🥢"], answer: "月餅 🥮" },
+        { q: "中秋節晚黑，大人細路通常會去公園玩咩？", options: ["玩燈籠 🏮", "舞獅 🦁", "扒龍舟 🛶", "拜年 🧧"], answer: "玩燈籠 🏮" },
+        { q: "傳說中，中秋節月亮上面有咩動物喺度搗藥？", options: ["玉兔 🐇", "老虎 🐅", "飛龍 🐉", "狗仔 🐕"], answer: "玉兔 🐇" },
+        { q: "農曆九月初九重陽節，傳統上我哋會去做咩？", options: ["拜山登高 ⛰️", "睇煙花 🎆", "游水 🏊", "食湯圓 🍡"], answer: "拜山登高 ⛰️" },
+        { q: "如果想祈求出入平安、身體健康，老友記新年通常會去邊度拜神？", options: ["去廟宇 ⛩️", "去超級市場 🛒", "去戲院 🎬", "去公園 🌳"], answer: "去廟宇 ⛩️" },
+
+        // 第四部分：香港本地常識 (新加入)
+        { q: "香港邊一種交通工具行駛嗰陣會發出「叮叮」聲，被稱為「叮叮」？", options: ["電車 🚋", "巴士 🚌", "地鐵 🚇", "小巴 🚐"], answer: "電車 🚋" },
+        { q: "去茶樓飲茶，好多老友記鍾意叫嘅「一盅兩件」，通常會包含咩點心？", options: ["蝦餃燒賣 🥟", "漢堡包 🍔", "炸雞 🍗", "壽司 🍣"], answer: "蝦餃燒賣 🥟" },
+        { q: "如果要由中環過海去尖沙咀，最經典又歷史悠久嘅水上交通工具係咩？", options: ["天星小輪 ⛴️", "豪華遊艇 🛥️", "獨木舟 🛶", "水上的士 🚤"], answer: "天星小輪 ⛴️" },
+        { q: "香港地道茶餐廳有一款將咖啡同奶茶溝埋一齊嘅特色飲品，叫咩名呀？", options: ["鴛鴦 ☕", "紅豆冰 🍧", "檸檬茶 🍋", "好立克 🥛"], answer: "鴛鴦 ☕" },
+        { q: "香港邊個地方最出名睇大佛同埋食齋菜呀？", options: ["大嶼山寶蓮寺 🪷", "黃大仙祠 ⛩️", "沙田車公廟 🎡", "旺角女人街 🛍️"], answer: "大嶼山寶蓮寺 🪷" },
+        { q: "街頭小食之中，有種用雞蛋、麵粉同糖做成，外表一粒粒金黃色，好香脆嘅叫咩？", options: ["雞蛋仔 🧇", "咖喱魚蛋 🍡", "臭豆腐 🧆", "豬腸粉 🥢"], answer: "雞蛋仔 🧇" },
+        { q: "香港最高嘅山峰，好多人冬天會去等睇結霜嘅，係邊一座山？", options: ["大帽山 ⛰️", "太平山 🏔️", "獅子山 🦁", "飛鵝山 🦅"], answer: "大帽山 ⛰️" }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let timeLeft = 20;
+    let timerInterval;
+    let synth = window.speechSynthesis;
+
+    function shuffleArray(array) {
+        for (let i = array.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [array[i], array[j]] = [array[j], array[i]];
+        }
+        return array;
+    }
+
+    function speak(text) {
+        if (synth.speaking) { synth.cancel(); }
+        // 移除朗讀文字中嘅 Emoji，確保廣東話發音正常
+        let cleanText = text.replace(/[\u{1F600}-\u{1F64F}\u{1F300}-\u{1F5FF}\u{1F680}-\u{1F6FF}\u{1F1E0}-\u{1F1FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '');
+        let utterance = new SpeechSynthesisUtterance(cleanText);
+        utterance.lang = 'zh-HK'; 
+        utterance.rate = 0.85; 
+        synth.speak(utterance);
+    }
+
+    function startGame() {
+        document.getElementById("start-screen").classList.add("hidden");
+        document.getElementById("quiz-screen").classList.remove("hidden");
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        clearInterval(timerInterval);
+        document.getElementById("feedback").innerHTML = "";
+        
+        let qData = questions[currentQuestionIndex];
+        
+        document.getElementById("progress-bar").max = questions.length;
+        document.getElementById("progress-text").innerText = `第 ${currentQuestionIndex + 1} / ${questions.length} 題`;
+        document.getElementById("progress-bar").value = currentQuestionIndex + 1;
+        document.getElementById("score-display").innerText = `⭐ ${score} 分`;
+        
+        document.getElementById("question-text").innerText = qData.q;
+        speak(qData.q);
+
+        let optionsContainer = document.getElementById("options-container");
+        optionsContainer.innerHTML = "";
+        let shuffledOptions = shuffleArray([...qData.options]);
+        
+        shuffledOptions.forEach(opt => {
+            let btn = document.createElement("button");
+            btn.className = "btn-option";
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(opt, btn);
+            optionsContainer.appendChild(btn);
+        });
+
+        timeLeft = 20;
+        document.getElementById("timer").innerText = `⏳ ${timeLeft}秒`;
+        timerInterval = setInterval(() => {
+            timeLeft--;
+            document.getElementById("timer").innerText = `⏳ ${timeLeft}秒`;
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                speak("時間到啦");
+                document.getElementById("feedback").innerHTML = "<span class='wrong'>時間到啦！🕒</span>";
+                disableButtons();
+                setTimeout(nextQuestion, 2500);
+            }
+        }, 1000);
+    }
+
+    function checkAnswer(selected, btnElement) {
+        clearInterval(timerInterval);
+        disableButtons();
+        synth.cancel(); 
+
+        let correctAnswer = questions[currentQuestionIndex].answer;
+        let feedbackEl = document.getElementById("feedback");
+
+        if (selected === correctAnswer) {
+            btnElement.style.backgroundColor = "#A5D6A7"; 
+            feedbackEl.innerHTML = "<span class='correct'>答啱咗！👏</span>";
+            speak("答啱咗！");
+            score++;
+            document.getElementById("score-display").innerText = `⭐ ${score} 分`;
+        } else {
+            btnElement.style.backgroundColor = "#EF9A9A"; 
+            feedbackEl.innerHTML = `<span class='wrong'>唔緊要，正確答案係：${correctAnswer}</span>`;
+            speak("唔緊要，正確答案係" + correctAnswer);
+            
+            let btns = document.getElementsByClassName("btn-option");
+            for(let b of btns) {
+                if(b.innerText === correctAnswer) {
+                    b.style.backgroundColor = "#A5D6A7";
+                }
+            }
+        }
+        setTimeout(nextQuestion, 3500);
+    }
+
+    function disableButtons() {
+        let btns = document.getElementsByClassName("btn-option");
+        for(let b of btns) {
+            b.disabled = true;
+            b.style.cursor = "not-allowed";
+        }
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            showEndScreen();
+        }
+    }
+
+    function showEndScreen() {
+        document.getElementById("quiz-screen").classList.add("hidden");
+        document.getElementById("end-screen").classList.remove("hidden");
+        document.getElementById("score").innerText = score;
+        speak(`遊戲完成啦！你總共答啱咗${score}題！`);
+    }
+</script>
+</body>
+</html>
